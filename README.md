@@ -6,7 +6,7 @@ A modern Android Sudoku game built with Jetpack Compose. This project currently 
 
 This project uses the Gradle wrapper. Ensure you have:
 
-- **JDK 17 or newer** (Gradle 8.5+ supports JDK 21).
+- **JDK 17 or newer** (Gradle 8.13 supports JDK 21).
 - Android SDK installed.
 
 Then run:
@@ -18,5 +18,5 @@ Then run:
 If the wrapper JAR is missing, regenerate it with:
 
 ```bash
-gradle wrapper
+gradle wrapper --gradle-version 8.13
 ```

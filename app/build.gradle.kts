@@ -18,11 +18,15 @@ android {
     buildFeatures {
         compose = true
     }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 }
 

@@ -1,4 +1,4 @@
-package com.example.sudokugame
+package com.azmath.sudoku
 
 import android.content.Context
 import android.media.AudioManager
@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.example.sudokugame.ui.theme.SudokuGameTheme
+import com.azmath.sudoku.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 

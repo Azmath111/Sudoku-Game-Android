@@ -1,4 +1,4 @@
-package com.example.sudokugame
+package com.azmath.sudoku
 
 enum class Difficulty { Easy, Medium, Hard }
 

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sudokugame"
+    namespace = "com.azmath.sudoku"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.sudokugame"
+        applicationId = "com.azmath.sudoku"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

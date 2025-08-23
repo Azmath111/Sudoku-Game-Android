@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sudokugame.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
@@ -246,7 +247,7 @@ fun GameScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Mini Sudoku")
                     Text(
-                        "by Nikoli & Thomas Snyder",
+                        "by Deepak Kumar",
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -266,7 +267,7 @@ fun GameScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(formatTime(time))
-            Text("#12 Square Jam (${difficulty.name})", fontWeight = FontWeight.Medium)
+            Text("Difficulty: ${difficulty.name}", fontWeight = FontWeight.Medium)
             TextButton(onClick = { restart() }) { Text("Reset") }
         }
         SudokuBoard(
@@ -315,7 +316,10 @@ fun GameScreen(
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3C3C3C),
+                    contentColor = Color.White
+                )
             ) { Text("Hint") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Notes")
@@ -333,7 +337,10 @@ fun GameScreen(
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3C3C3C),
+                    contentColor = Color.White
+                )
             ) { Text("Erase") }
         }
         Spacer(Modifier.height(8.dp))
@@ -468,19 +475,21 @@ fun NumberPad(
         numbers.chunked(3).forEach { rowNums ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 rowNums.forEach { n ->
                     Button(
                         onClick = { onNumberSelected(n) },
-                        modifier = Modifier.size(64.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(64.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF3C3C3C),
                             contentColor = Color.White
                         )
                     ) {
-                        Text(n.toString())
+                        Text(n.toString(), fontSize = 24.sp)
                     }
                 }
             }

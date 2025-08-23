@@ -71,7 +71,8 @@ fun App() {
                     val b = stringToBoard(prefs.getString("board", "") ?: "")
                     val size = b.size
                     val (br, bc) = blockDimensions(size)
-                    puzzle = Puzzle(b, size, br, bc)
+                    val sol = b.map { it.clone() }.toTypedArray().also { solveSudoku(it, size, br, bc) }
+                    puzzle = Puzzle(b, size, br, bc, sol)
                     time = prefs.getInt("time", 0)
                     difficulty = when (size) { 4 -> Difficulty.Easy; 6 -> Difficulty.Medium; else -> Difficulty.Hard }
                     screen = Screen.Game
@@ -81,6 +82,7 @@ fun App() {
             Screen.Game -> puzzle?.let { p ->
                 GameScreen(
                     initialBoard = p.board,
+                    solution = p.solution,
                     size = p.size,
                     blockRows = p.blockRows,
                     blockCols = p.blockCols,
@@ -107,9 +109,12 @@ fun StartScreen(
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
     val scores = prefs.getString("scores", "")
-        ?.split(",")
+        ?.split(";")
         ?.filter { it.isNotBlank() }
-        ?.map { it.toInt() } ?: emptyList()
+        ?.map {
+            val parts = it.split("|")
+            parts[0].toInt() to parts[1].toInt()
+        } ?: emptyList()
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -136,7 +141,12 @@ fun StartScreen(
         Button(onClick = onSettings) { Text("Settings") }
         if (scores.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            Text("High Scores: ${scores.joinToString(", ")}")
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("High Scores:")
+                scores.forEachIndexed { index, (s, t) ->
+                    Text("${index + 1}. ${s} pts - ${formatTime(t)}")
+                }
+            }
         }
     }
 }
@@ -145,6 +155,7 @@ fun StartScreen(
 @Composable
 fun GameScreen(
     initialBoard: Array<IntArray>,
+    solutionBoard: Array<IntArray>,
     size: Int,
     blockRows: Int,
     blockCols: Int,
@@ -169,9 +180,7 @@ fun GameScreen(
     var score by remember { mutableStateOf(0) }
     var showDialog by remember { mutableStateOf(false) }
 
-    val solution = remember {
-        initialBoard.map { it.clone() }.toTypedArray().also { solveSudoku(it, size, blockRows, blockCols) }
-    }
+    val solution = solutionBoard
     val maxNumber = size
 
     LaunchedEffect(solved) {
@@ -197,15 +206,19 @@ fun GameScreen(
         return (base - time * 5 - hintsUsed * 100).coerceAtLeast(0)
     }
 
-    fun saveHighScore(value: Int) {
+    fun saveHighScore(value: Int, time: Int) {
         val list = prefs.getString("scores", "")
-            ?.split(",")
+            ?.split(";")
             ?.filter { it.isNotBlank() }
-            ?.map { it.toInt() }
+            ?.map {
+                val parts = it.split("|")
+                parts[0].toInt() to parts[1].toInt()
+            }
             ?.toMutableList() ?: mutableListOf()
-        list.add(value)
-        val top = list.sortedDescending().take(5)
-        prefs.edit().putString("scores", top.joinToString(",")).apply()
+        list.add(value to time)
+        val top = list.sortedByDescending { it.first }.take(5)
+        val str = top.joinToString(";") { "${it.first}|${it.second}" }
+        prefs.edit().putString("scores", str).apply()
     }
 
     fun restart() {
@@ -293,7 +306,7 @@ fun GameScreen(
                             if (isBoardComplete(board) && conflicts.isEmpty()) {
                                 solved = true
                                 score = computeScore()
-                                saveHighScore(score)
+                                saveHighScore(score, time)
                                 clearSave()
                                 showDialog = true
                             }
@@ -343,7 +356,7 @@ fun GameScreen(
                     if (isBoardComplete(board) && conflicts.isEmpty()) {
                         solved = true
                         score = computeScore()
-                        saveHighScore(score)
+                        saveHighScore(score, time)
                         clearSave()
                         showDialog = true
                     }

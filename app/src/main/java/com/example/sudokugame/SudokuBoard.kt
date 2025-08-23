@@ -17,13 +17,16 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun SudokuBoard(
     board: Array<IntArray>,
     notes: Array<Array<Set<Int>>>,
     selected: Pair<Int, Int>?,
+    conflicts: Set<Pair<Int, Int>>,
+    dimension: Int,
+    blockRows: Int,
+    blockCols: Int,
     onCellTapped: (Int, Int) -> Unit
 ) {
     val highlightAlpha by animateFloatAsState(if (selected != null) 0.3f else 0f)
@@ -35,14 +38,23 @@ fun SudokuBoard(
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
-                    val cellSize = size.width / 9
-                    val col = (offset.x / cellSize).toInt().coerceIn(0, 8)
-                    val row = (offset.y / cellSize).toInt().coerceIn(0, 8)
+                    val cellSize = this.size.width / dimension
+                    val col = (offset.x / cellSize).toInt().coerceIn(0, dimension - 1)
+                    val row = (offset.y / cellSize).toInt().coerceIn(0, dimension - 1)
                     onCellTapped(row, col)
                 }
             }
     ) {
-        val cellSize = size.width / 9
+        val cellSize = this.size.width / dimension
+
+        // Highlight conflicting cells
+        conflicts.forEach { (r, c) ->
+            drawRect(
+                color = Color.Red.copy(alpha = 0.5f),
+                topLeft = Offset(c * cellSize, r * cellSize),
+                size = Size(cellSize, cellSize)
+            )
+        }
 
         // Highlight the currently selected cell
         selected?.let { (r, c) ->
@@ -53,24 +65,24 @@ fun SudokuBoard(
             )
         }
 
-        for (i in 0..9) {
-            val stroke = if (i % 3 == 0) 4f else 1f
+        for (i in 0..dimension) {
+            val vStroke = if (i % blockCols == 0) 4f else 1f
             drawLine(
                 Color.White,
                 start = Offset(i * cellSize, 0f),
-                end = Offset(i * cellSize, size.height),
-                strokeWidth = stroke,
+                end = Offset(i * cellSize, this.size.height),
+                strokeWidth = vStroke,
                 cap = StrokeCap.Round
             )
+            val hStroke = if (i % blockRows == 0) 4f else 1f
             drawLine(
                 Color.White,
                 start = Offset(0f, i * cellSize),
-                end = Offset(size.width, i * cellSize),
-                strokeWidth = stroke,
+                end = Offset(this.size.width, i * cellSize),
+                strokeWidth = hStroke,
                 cap = StrokeCap.Round
             )
         }
-
         board.forEachIndexed { r, row ->
             row.forEachIndexed { c, value ->
                 if (value != 0) {

@@ -15,9 +15,12 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -217,24 +220,33 @@ fun GameScreen(
         modifier = Modifier.fillMaxSize().animateContentSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        TopAppBar(
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Mini Sudoku")
+                    Text(
+                        "by Nikoli & Thomas Snyder",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            },
+            navigationIcon = {
+                IconButton(onClick = {
+                    clearSave()
+                    onBack()
+                }) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                }
+            }
+        )
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Time: ${time}s")
-            Row {
-                TextButton(onClick = { noteMode = !noteMode }) {
-                    Text(if (noteMode) "Notes On" else "Notes Off")
-                }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { save() }) { Text("Save") }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = {
-                    clearSave()
-                    onBack()
-                }) { Text("Exit") }
-            }
+            Text(formatTime(time))
+            Text("#12 Square Jam (${difficulty.name})", fontWeight = FontWeight.Medium)
+            TextButton(onClick = { restart() }) { Text("Reset") }
         }
         SudokuBoard(
             board,
@@ -247,51 +259,17 @@ fun GameScreen(
         ) { r, c ->
             selected = r to c
         }
-        Spacer(Modifier.height(16.dp))
-        AnimatedVisibility(visible = selected != null, enter = fadeIn(), exit = fadeOut()) {
-            NumberPad(maxNumber, onNumberSelected = { number ->
-                selected?.let { (r, c) ->
-                    if (noteMode) {
-                        val cellNotes = notes[r][c]
-                        if (cellNotes.contains(number)) cellNotes.remove(number) else cellNotes.add(number)
-                        notes = notes.copyOf()
-                    } else {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = number
-                        board = newBoard
-                        notes[r][c].clear()
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                        if (vibrationEnabled) {
-                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                        }
-                        if (soundEnabled) {
-                            tone.startTone(ToneGenerator.TONE_DTMF_0, 100)
-                        }
-                        if (isBoardComplete(board) && conflicts.isEmpty()) {
-                            solved = true
-                            score = computeScore()
-                            saveHighScore(score)
-                            clearSave()
-                            showDialog = true
-                        }
-                    }
-                }
-            }, onClear = {
-                selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0) {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = 0
-                        board = newBoard
-                        notes[r][c].clear()
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                    }
-                }
-            }, onHint = {
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = {
                 selected?.let { (r, c) ->
                     if (initialBoard[r][c] == 0) {
                         val newBoard = board.map { it.clone() }.toTypedArray()
                         if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
-                            // active cell correct; fill nearest empty
                             val empties = mutableListOf<Pair<Int, Int>>()
                             for (i in 0 until size) {
                                 for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
@@ -313,8 +291,52 @@ fun GameScreen(
                         }
                     }
                 }
-            })
+            }) { Text("Hint") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Notes")
+                Switch(checked = noteMode, onCheckedChange = { noteMode = it })
+            }
+            Button(onClick = {
+                selected?.let { (r, c) ->
+                    if (initialBoard[r][c] == 0) {
+                        val newBoard = board.map { it.clone() }.toTypedArray()
+                        newBoard[r][c] = 0
+                        board = newBoard
+                        notes[r][c].clear()
+                        conflicts = findConflicts(board, size, blockRows, blockCols)
+                    }
+                }
+            }) { Text("Erase") }
         }
+        Spacer(Modifier.height(8.dp))
+        NumberPad(maxNumber, onNumberSelected = { number ->
+            selected?.let { (r, c) ->
+                if (noteMode) {
+                    val cellNotes = notes[r][c]
+                    if (cellNotes.contains(number)) cellNotes.remove(number) else cellNotes.add(number)
+                    notes = notes.copyOf()
+                } else {
+                    val newBoard = board.map { it.clone() }.toTypedArray()
+                    newBoard[r][c] = number
+                    board = newBoard
+                    notes[r][c].clear()
+                    conflicts = findConflicts(board, size, blockRows, blockCols)
+                    if (vibrationEnabled) {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                    if (soundEnabled) {
+                        tone.startTone(ToneGenerator.TONE_DTMF_0, 100)
+                    }
+                    if (isBoardComplete(board) && conflicts.isEmpty()) {
+                        solved = true
+                        score = computeScore()
+                        saveHighScore(score)
+                        clearSave()
+                        showDialog = true
+                    }
+                }
+            }
+        })
         AnimatedVisibility(visible = showDialog, enter = scaleIn(), exit = scaleOut()) {
             AlertDialog(
                 onDismissRequest = {},
@@ -325,6 +347,12 @@ fun GameScreen(
             )
         }
     }
+}
+
+fun formatTime(seconds: Int): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return "%d:%02d".format(m, s)
 }
 
 fun isValidMove(board: Array<IntArray>, row: Int, col: Int, value: Int, size: Int, blockRows: Int, blockCols: Int): Boolean {
@@ -402,9 +430,7 @@ fun solveSudoku(board: Array<IntArray>, size: Int, blockRows: Int, blockCols: In
 @Composable
 fun NumberPad(
     maxNumber: Int,
-    onNumberSelected: (Int) -> Unit,
-    onClear: () -> Unit,
-    onHint: () -> Unit
+    onNumberSelected: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -417,17 +443,16 @@ fun NumberPad(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 rowNums.forEach { n ->
-                    Button(onClick = { onNumberSelected(n) }) { Text(n.toString()) }
+                    Button(
+                        onClick = { onNumberSelected(n) },
+                        modifier = Modifier.size(64.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                    ) {
+                        Text(n.toString())
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = onClear) { Text("Clear") }
-            Button(onClick = onHint) { Text("Hint") }
         }
     }
 }

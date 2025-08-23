@@ -1,4 +1,3 @@
-<title>Sudoku Game Privacy Policy</title>
 </head>
 <body>
 <h1>Privacy Policy for Sudoku Game</h1>

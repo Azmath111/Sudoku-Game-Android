@@ -16,7 +16,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sudokugame.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
@@ -212,9 +213,9 @@ fun GameScreen(
             ?.split(";")
             ?.mapNotNull { entry ->
                 val parts = entry.split("|")
-                val score = parts.getOrNull(0)?.toIntOrNull()
+                val parsedScore = parts.getOrNull(0)?.toIntOrNull()
                 val t = parts.getOrNull(1)?.toIntOrNull()
-                if (score != null && t != null) score to t else null
+                if (parsedScore != null && t != null) parsedScore to t else null
             }
             ?.toMutableList() ?: mutableListOf()
         list.add(value to time)
@@ -246,7 +247,7 @@ fun GameScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Mini Sudoku")
                     Text(
-                        "by Nikoli & Thomas Snyder",
+                        "by Deepak Kumar",
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -256,7 +257,7 @@ fun GameScreen(
                     clearSave()
                     onBack()
                 }) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             }
         )
@@ -266,7 +267,7 @@ fun GameScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(formatTime(time))
-            Text("#12 Square Jam (${difficulty.name})", fontWeight = FontWeight.Medium)
+            Text("Difficulty: ${difficulty.name}", fontWeight = FontWeight.Medium)
             TextButton(onClick = { restart() }) { Text("Reset") }
         }
         SudokuBoard(
@@ -315,7 +316,10 @@ fun GameScreen(
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3C3C3C),
+                    contentColor = Color.White
+                )
             ) { Text("Hint") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Notes")
@@ -333,7 +337,10 @@ fun GameScreen(
                         }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3C3C3C),
+                    contentColor = Color.White
+                )
             ) { Text("Erase") }
         }
         Spacer(Modifier.height(8.dp))
@@ -468,19 +475,21 @@ fun NumberPad(
         numbers.chunked(3).forEach { rowNums ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 rowNums.forEach { n ->
                     Button(
                         onClick = { onNumberSelected(n) },
-                        modifier = Modifier.size(64.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(64.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF3C3C3C),
                             contentColor = Color.White
                         )
                     ) {
-                        Text(n.toString())
+                        Text(n.toString(), fontSize = 24.sp)
                     }
                 }
             }

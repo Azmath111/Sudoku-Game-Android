@@ -15,13 +15,18 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sudokugame.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -66,7 +71,8 @@ fun App() {
                     val b = stringToBoard(prefs.getString("board", "") ?: "")
                     val size = b.size
                     val (br, bc) = blockDimensions(size)
-                    puzzle = Puzzle(b, size, br, bc)
+                    val sol = b.map { it.clone() }.toTypedArray().also { solveSudoku(it, size, br, bc) }
+                    puzzle = Puzzle(b, size, br, bc, sol)
                     time = prefs.getInt("time", 0)
                     difficulty = when (size) { 4 -> Difficulty.Easy; 6 -> Difficulty.Medium; else -> Difficulty.Hard }
                     screen = Screen.Game
@@ -76,6 +82,7 @@ fun App() {
             Screen.Game -> puzzle?.let { p ->
                 GameScreen(
                     initialBoard = p.board,
+                    solutionBoard = p.solution,
                     size = p.size,
                     blockRows = p.blockRows,
                     blockCols = p.blockCols,
@@ -102,9 +109,13 @@ fun StartScreen(
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
     val scores = prefs.getString("scores", "")
-        ?.split(",")
-        ?.filter { it.isNotBlank() }
-        ?.map { it.toInt() } ?: emptyList()
+        ?.split(";")
+        ?.mapNotNull { entry ->
+            val parts = entry.split("|")
+            val score = parts.getOrNull(0)?.toIntOrNull()
+            val time = parts.getOrNull(1)?.toIntOrNull()
+            if (score != null && time != null) score to time else null
+        } ?: emptyList()
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -131,14 +142,21 @@ fun StartScreen(
         Button(onClick = onSettings) { Text("Settings") }
         if (scores.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            Text("High Scores: ${scores.joinToString(", ")}")
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("High Scores:")
+                scores.forEachIndexed { index, (s, t) ->
+                    Text("${index + 1}. ${s} pts - ${formatTime(t)}")
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(
     initialBoard: Array<IntArray>,
+    solutionBoard: Array<IntArray>,
     size: Int,
     blockRows: Int,
     blockCols: Int,
@@ -163,9 +181,7 @@ fun GameScreen(
     var score by remember { mutableStateOf(0) }
     var showDialog by remember { mutableStateOf(false) }
 
-    val solution = remember {
-        initialBoard.map { it.clone() }.toTypedArray().also { solveSudoku(it, size, blockRows, blockCols) }
-    }
+    val solution = solutionBoard
     val maxNumber = size
 
     LaunchedEffect(solved) {
@@ -191,15 +207,20 @@ fun GameScreen(
         return (base - time * 5 - hintsUsed * 100).coerceAtLeast(0)
     }
 
-    fun saveHighScore(value: Int) {
+    fun saveHighScore(value: Int, time: Int) {
         val list = prefs.getString("scores", "")
-            ?.split(",")
-            ?.filter { it.isNotBlank() }
-            ?.map { it.toInt() }
+            ?.split(";")
+            ?.mapNotNull { entry ->
+                val parts = entry.split("|")
+                val score = parts.getOrNull(0)?.toIntOrNull()
+                val t = parts.getOrNull(1)?.toIntOrNull()
+                if (score != null && t != null) score to t else null
+            }
             ?.toMutableList() ?: mutableListOf()
-        list.add(value)
-        val top = list.sortedDescending().take(5)
-        prefs.edit().putString("scores", top.joinToString(",")).apply()
+        list.add(value to time)
+        val top = list.sortedByDescending { it.first }.take(5)
+        val str = top.joinToString(";") { "${it.first}|${it.second}" }
+        prefs.edit().putString("scores", str).apply()
     }
 
     fun restart() {
@@ -217,104 +238,133 @@ fun GameScreen(
         modifier = Modifier.fillMaxSize().animateContentSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color(0xFF3C3C3C)
+            ),
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Mini Sudoku")
+                    Text(
+                        "by Nikoli & Thomas Snyder",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            },
+            navigationIcon = {
+                IconButton(onClick = {
+                    clearSave()
+                    onBack()
+                }) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                }
+            }
+        )
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Time: ${time}s")
-            Row {
-                TextButton(onClick = { noteMode = !noteMode }) {
-                    Text(if (noteMode) "Notes On" else "Notes Off")
-                }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { save() }) { Text("Save") }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = {
-                    clearSave()
-                    onBack()
-                }) { Text("Exit") }
-            }
+            Text(formatTime(time))
+            Text("#12 Square Jam (${difficulty.name})", fontWeight = FontWeight.Medium)
+            TextButton(onClick = { restart() }) { Text("Reset") }
         }
         SudokuBoard(
-            board,
-            notes.map { row -> row.map { it.toSet() }.toTypedArray() }.toTypedArray(),
-            selected,
-            conflicts,
-            size,
-            blockRows,
-            blockCols
+            board = board,
+            initial = initialBoard,
+            notes = notes.map { row -> row.map { it.toSet() }.toTypedArray() }.toTypedArray(),
+            selected = selected,
+            conflicts = conflicts,
+            dimension = size,
+            blockRows = blockRows,
+            blockCols = blockCols
         ) { r, c ->
             selected = r to c
         }
-        Spacer(Modifier.height(16.dp))
-        AnimatedVisibility(visible = selected != null, enter = fadeIn(), exit = fadeOut()) {
-            NumberPad(maxNumber, onNumberSelected = { number ->
-                selected?.let { (r, c) ->
-                    if (noteMode) {
-                        val cellNotes = notes[r][c]
-                        if (cellNotes.contains(number)) cellNotes.remove(number) else cellNotes.add(number)
-                        notes = notes.copyOf()
-                    } else {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = number
-                        board = newBoard
-                        notes[r][c].clear()
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                        if (vibrationEnabled) {
-                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                        }
-                        if (soundEnabled) {
-                            tone.startTone(ToneGenerator.TONE_DTMF_0, 100)
-                        }
-                        if (isBoardComplete(board) && conflicts.isEmpty()) {
-                            solved = true
-                            score = computeScore()
-                            saveHighScore(score)
-                            clearSave()
-                            showDialog = true
-                        }
-                    }
-                }
-            }, onClear = {
-                selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0) {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = 0
-                        board = newBoard
-                        notes[r][c].clear()
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                    }
-                }
-            }, onHint = {
-                selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0) {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
-                            // active cell correct; fill nearest empty
-                            val empties = mutableListOf<Pair<Int, Int>>()
-                            for (i in 0 until size) {
-                                for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = {
+                    selected?.let { (r, c) ->
+                        if (initialBoard[r][c] == 0) {
+                            val newBoard = board.map { it.clone() }.toTypedArray()
+                            if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
+                                val empties = mutableListOf<Pair<Int, Int>>()
+                                for (i in 0 until size) {
+                                    for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
+                                }
+                                val nearest = empties.minByOrNull { (er, ec) -> abs(er - r) + abs(ec - c) }
+                                nearest?.let { (nr, nc) -> newBoard[nr][nc] = solution[nr][nc] }
+                            } else {
+                                newBoard[r][c] = solution[r][c]
                             }
-                            val nearest = empties.minByOrNull { (er, ec) -> abs(er - r) + abs(ec - c) }
-                            nearest?.let { (nr, nc) -> newBoard[nr][nc] = solution[nr][nc] }
-                        } else {
-                            newBoard[r][c] = solution[r][c]
-                        }
-                        board = newBoard
-                        hintsUsed++
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                        if (isBoardComplete(board) && conflicts.isEmpty()) {
-                            solved = true
-                            score = computeScore()
-                            saveHighScore(score)
-                            clearSave()
-                            showDialog = true
+                            board = newBoard
+                            hintsUsed++
+                            conflicts = findConflicts(board, size, blockRows, blockCols)
+                            if (isBoardComplete(board) && conflicts.isEmpty()) {
+                                solved = true
+                                score = computeScore()
+                                saveHighScore(score, time)
+                                clearSave()
+                                showDialog = true
+                            }
                         }
                     }
-                }
-            })
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+            ) { Text("Hint") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Notes")
+                Switch(checked = noteMode, onCheckedChange = { noteMode = it })
+            }
+            Button(
+                onClick = {
+                    selected?.let { (r, c) ->
+                        if (initialBoard[r][c] == 0) {
+                            val newBoard = board.map { it.clone() }.toTypedArray()
+                            newBoard[r][c] = 0
+                            board = newBoard
+                            notes[r][c].clear()
+                            conflicts = findConflicts(board, size, blockRows, blockCols)
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+            ) { Text("Erase") }
         }
+        Spacer(Modifier.height(8.dp))
+        NumberPad(maxNumber, onNumberSelected = { number ->
+            selected?.let { (r, c) ->
+                if (noteMode) {
+                    val cellNotes = notes[r][c]
+                    if (cellNotes.contains(number)) cellNotes.remove(number) else cellNotes.add(number)
+                    notes = notes.copyOf()
+                } else {
+                    val newBoard = board.map { it.clone() }.toTypedArray()
+                    newBoard[r][c] = number
+                    board = newBoard
+                    notes[r][c].clear()
+                    conflicts = findConflicts(board, size, blockRows, blockCols)
+                    if (vibrationEnabled) {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                    if (soundEnabled) {
+                        tone.startTone(ToneGenerator.TONE_DTMF_0, 100)
+                    }
+                    if (isBoardComplete(board) && conflicts.isEmpty()) {
+                        solved = true
+                        score = computeScore()
+                        saveHighScore(score, time)
+                        clearSave()
+                        showDialog = true
+                    }
+                }
+            }
+        })
         AnimatedVisibility(visible = showDialog, enter = scaleIn(), exit = scaleOut()) {
             AlertDialog(
                 onDismissRequest = {},
@@ -325,6 +375,12 @@ fun GameScreen(
             )
         }
     }
+}
+
+fun formatTime(seconds: Int): String {
+    val m = seconds / 60
+    val s = seconds % 60
+    return "%d:%02d".format(m, s)
 }
 
 fun isValidMove(board: Array<IntArray>, row: Int, col: Int, value: Int, size: Int, blockRows: Int, blockCols: Int): Boolean {
@@ -402,9 +458,7 @@ fun solveSudoku(board: Array<IntArray>, size: Int, blockRows: Int, blockCols: In
 @Composable
 fun NumberPad(
     maxNumber: Int,
-    onNumberSelected: (Int) -> Unit,
-    onClear: () -> Unit,
-    onHint: () -> Unit
+    onNumberSelected: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -417,17 +471,20 @@ fun NumberPad(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 rowNums.forEach { n ->
-                    Button(onClick = { onNumberSelected(n) }) { Text(n.toString()) }
+                    Button(
+                        onClick = { onNumberSelected(n) },
+                        modifier = Modifier.size(64.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3C3C3C),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(n.toString())
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = onClear) { Text("Clear") }
-            Button(onClick = onHint) { Text("Hint") }
         }
     }
 }

@@ -78,7 +78,14 @@ fun boardToString(board: Array<IntArray>): String =
     board.joinToString(";") { row -> row.joinToString(",") }
 
 fun stringToBoard(str: String): Array<IntArray> =
-    str.split(";").map { row -> row.split(",").map { it.toInt() }.toIntArray() }.toTypedArray()
+    str.split(";")
+        .filter { it.isNotBlank() }
+        .map { row ->
+            row.split(",")
+                .mapNotNull { it.toIntOrNull() }
+                .toIntArray()
+        }
+        .toTypedArray()
 
 fun blockDimensions(size: Int): Pair<Int, Int> = when (size) {
     4 -> 2 to 2

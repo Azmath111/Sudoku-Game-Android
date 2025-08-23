@@ -110,10 +110,11 @@ fun StartScreen(
     val prefs = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
     val scores = prefs.getString("scores", "")
         ?.split(";")
-        ?.filter { it.isNotBlank() }
-        ?.map {
-            val parts = it.split("|")
-            parts[0].toInt() to parts[1].toInt()
+        ?.mapNotNull { entry ->
+            val parts = entry.split("|")
+            val score = parts.getOrNull(0)?.toIntOrNull()
+            val time = parts.getOrNull(1)?.toIntOrNull()
+            if (score != null && time != null) score to time else null
         } ?: emptyList()
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -209,10 +210,11 @@ fun GameScreen(
     fun saveHighScore(value: Int, time: Int) {
         val list = prefs.getString("scores", "")
             ?.split(";")
-            ?.filter { it.isNotBlank() }
-            ?.map {
-                val parts = it.split("|")
-                parts[0].toInt() to parts[1].toInt()
+            ?.mapNotNull { entry ->
+                val parts = entry.split("|")
+                val score = parts.getOrNull(0)?.toIntOrNull()
+                val t = parts.getOrNull(1)?.toIntOrNull()
+                if (score != null && t != null) score to t else null
             }
             ?.toMutableList() ?: mutableListOf()
         list.add(value to time)

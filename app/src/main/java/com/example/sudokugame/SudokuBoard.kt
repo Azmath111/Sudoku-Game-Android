@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -18,7 +19,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun SudokuBoard(board: Array<IntArray>, selected: Pair<Int, Int>?, onCellTapped: (Int, Int) -> Unit) {
+fun SudokuBoard(
+    board: Array<IntArray>,
+    selected: Pair<Int, Int>?,
+    onCellTapped: (Int, Int) -> Unit
+) {
+    val highlightAlpha by animateFloatAsState(if (selected != null) 0.5f else 0f)
+
     Canvas(
         modifier = Modifier
             .size(300.dp)
@@ -33,19 +40,16 @@ fun SudokuBoard(board: Array<IntArray>, selected: Pair<Int, Int>?, onCellTapped:
             }
     ) {
         val cellSize = size.width / 9
-        for (r in 0 until 9) {
-            for (c in 0 until 9) {
-                val x = c * cellSize
-                val y = r * cellSize
-                val isSelected = selected?.let { it.first == r && it.second == c } ?: false
-                val alpha by animateFloatAsState(if (isSelected) 0.5f else 0f)
-                drawRect(
-                    color = Color.Blue.copy(alpha = alpha),
-                    topLeft = Offset(x, y),
-                    size = androidx.compose.ui.geometry.Size(cellSize, cellSize)
-                )
-            }
+
+        // Highlight the currently selected cell
+        selected?.let { (r, c) ->
+            drawRect(
+                color = Color.Blue.copy(alpha = highlightAlpha),
+                topLeft = Offset(c * cellSize, r * cellSize),
+                size = Size(cellSize, cellSize)
+            )
         }
+
         for (i in 0..9) {
             val stroke = if (i % 3 == 0) 4f else 1f
             drawLine(
@@ -63,6 +67,7 @@ fun SudokuBoard(board: Array<IntArray>, selected: Pair<Int, Int>?, onCellTapped:
                 cap = StrokeCap.Round
             )
         }
+
         board.forEachIndexed { r, row ->
             row.forEachIndexed { c, value ->
                 if (value != 0) {

@@ -1,4 +1,4 @@
-package com.example.sudokugame.ui.theme
+package com.azmath.sudoku.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

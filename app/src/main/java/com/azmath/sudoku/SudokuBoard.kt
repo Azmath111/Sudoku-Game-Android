@@ -1,4 +1,4 @@
-package com.example.sudokugame
+package com.azmath.sudoku
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas

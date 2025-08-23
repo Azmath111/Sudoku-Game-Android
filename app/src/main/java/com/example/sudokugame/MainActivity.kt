@@ -131,7 +131,7 @@ fun StartScreen(
         Button(onClick = onSettings) { Text("Settings") }
         if (scores.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            Text("High Scores: ${'$'}{scores.joinToString(", ")}")
+            Text("High Scores: ${scores.joinToString(", ")}")
         }
     }
 }
@@ -319,7 +319,7 @@ fun GameScreen(
             AlertDialog(
                 onDismissRequest = {},
                 title = { Text("Puzzle Complete") },
-                text = { Text("Time: ${'$'}{time}s\nScore: ${'$'}score") },
+                text = { Text("Time: ${time}s\nScore: ${score}") },
                 confirmButton = { TextButton(onClick = { restart() }) { Text("Restart") } },
                 dismissButton = { TextButton(onClick = { onBack() }) { Text("Main Menu") } }
             )

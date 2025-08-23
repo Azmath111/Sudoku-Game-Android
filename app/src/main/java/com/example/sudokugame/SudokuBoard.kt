@@ -1,16 +1,16 @@
 package com.example.sudokugame
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -22,7 +22,7 @@ fun SudokuBoard(board: Array<IntArray>, selected: Pair<Int, Int>?, onCellTapped:
                 val x = c * cellSize
                 val y = r * cellSize
                 val isSelected = selected?.first == r && selected?.second == c
-                val alpha by animateFloatAsState(if (isSelected) 0.5f else 0f)
+                val alpha = if (isSelected) 0.5f else 0f
                 drawRect(
                     color = Color.Blue.copy(alpha = alpha),
                     topLeft = Offset(x, y),
@@ -50,8 +50,8 @@ fun SudokuBoard(board: Array<IntArray>, selected: Pair<Int, Int>?, onCellTapped:
         board.forEachIndexed { r, row ->
             row.forEachIndexed { c, value ->
                 if (value != 0) {
-                    drawContext.canvas.nativeCanvas.apply {
-                        drawText(
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawText(
                             value.toString(),
                             c * cellSize + cellSize / 2,
                             r * cellSize + cellSize * 0.75f,

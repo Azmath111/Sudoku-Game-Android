@@ -82,7 +82,7 @@ fun App() {
             Screen.Game -> puzzle?.let { p ->
                 GameScreen(
                     initialBoard = p.board,
-                    solution = p.solution,
+                    solutionBoard = p.solution,
                     size = p.size,
                     blockRows = p.blockRows,
                     blockCols = p.blockCols,

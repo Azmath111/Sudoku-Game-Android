@@ -16,7 +16,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -213,9 +213,9 @@ fun GameScreen(
             ?.split(";")
             ?.mapNotNull { entry ->
                 val parts = entry.split("|")
-                val score = parts.getOrNull(0)?.toIntOrNull()
+                val parsedScore = parts.getOrNull(0)?.toIntOrNull()
                 val t = parts.getOrNull(1)?.toIntOrNull()
-                if (score != null && t != null) score to t else null
+                if (parsedScore != null && t != null) parsedScore to t else null
             }
             ?.toMutableList() ?: mutableListOf()
         list.add(value to time)
@@ -257,7 +257,7 @@ fun GameScreen(
                     clearSave()
                     onBack()
                 }) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             }
         )

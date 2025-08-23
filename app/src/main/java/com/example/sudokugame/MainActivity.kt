@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.sudokugame.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -139,6 +141,7 @@ fun StartScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(
     initialBoard: Array<IntArray>,
@@ -221,6 +224,9 @@ fun GameScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color(0xFF3C3C3C)
+            ),
             title = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Mini Sudoku")
@@ -249,13 +255,14 @@ fun GameScreen(
             TextButton(onClick = { restart() }) { Text("Reset") }
         }
         SudokuBoard(
-            board,
-            notes.map { row -> row.map { it.toSet() }.toTypedArray() }.toTypedArray(),
-            selected,
-            conflicts,
-            size,
-            blockRows,
-            blockCols
+            board = board,
+            initial = initialBoard,
+            notes = notes.map { row -> row.map { it.toSet() }.toTypedArray() }.toTypedArray(),
+            selected = selected,
+            conflicts = conflicts,
+            dimension = size,
+            blockRows = blockRows,
+            blockCols = blockCols
         ) { r, c ->
             selected = r to c
         }
@@ -265,48 +272,54 @@ fun GameScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = {
-                selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0) {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
-                            val empties = mutableListOf<Pair<Int, Int>>()
-                            for (i in 0 until size) {
-                                for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
+            Button(
+                onClick = {
+                    selected?.let { (r, c) ->
+                        if (initialBoard[r][c] == 0) {
+                            val newBoard = board.map { it.clone() }.toTypedArray()
+                            if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
+                                val empties = mutableListOf<Pair<Int, Int>>()
+                                for (i in 0 until size) {
+                                    for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
+                                }
+                                val nearest = empties.minByOrNull { (er, ec) -> abs(er - r) + abs(ec - c) }
+                                nearest?.let { (nr, nc) -> newBoard[nr][nc] = solution[nr][nc] }
+                            } else {
+                                newBoard[r][c] = solution[r][c]
                             }
-                            val nearest = empties.minByOrNull { (er, ec) -> abs(er - r) + abs(ec - c) }
-                            nearest?.let { (nr, nc) -> newBoard[nr][nc] = solution[nr][nc] }
-                        } else {
-                            newBoard[r][c] = solution[r][c]
-                        }
-                        board = newBoard
-                        hintsUsed++
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
-                        if (isBoardComplete(board) && conflicts.isEmpty()) {
-                            solved = true
-                            score = computeScore()
-                            saveHighScore(score)
-                            clearSave()
-                            showDialog = true
+                            board = newBoard
+                            hintsUsed++
+                            conflicts = findConflicts(board, size, blockRows, blockCols)
+                            if (isBoardComplete(board) && conflicts.isEmpty()) {
+                                solved = true
+                                score = computeScore()
+                                saveHighScore(score)
+                                clearSave()
+                                showDialog = true
+                            }
                         }
                     }
-                }
-            }) { Text("Hint") }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+            ) { Text("Hint") }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Notes")
                 Switch(checked = noteMode, onCheckedChange = { noteMode = it })
             }
-            Button(onClick = {
-                selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0) {
-                        val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = 0
-                        board = newBoard
-                        notes[r][c].clear()
-                        conflicts = findConflicts(board, size, blockRows, blockCols)
+            Button(
+                onClick = {
+                    selected?.let { (r, c) ->
+                        if (initialBoard[r][c] == 0) {
+                            val newBoard = board.map { it.clone() }.toTypedArray()
+                            newBoard[r][c] = 0
+                            board = newBoard
+                            notes[r][c].clear()
+                            conflicts = findConflicts(board, size, blockRows, blockCols)
+                        }
                     }
-                }
-            }) { Text("Erase") }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C))
+            ) { Text("Erase") }
         }
         Spacer(Modifier.height(8.dp))
         NumberPad(maxNumber, onNumberSelected = { number ->
@@ -446,7 +459,11 @@ fun NumberPad(
                     Button(
                         onClick = { onNumberSelected(n) },
                         modifier = Modifier.size(64.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3C3C3C),
+                            contentColor = Color.White
+                        )
                     ) {
                         Text(n.toString())
                     }

@@ -21,6 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 @Composable
 fun SudokuBoard(
     board: Array<IntArray>,
+    initial: Array<IntArray>,
     notes: Array<Array<Set<Int>>>,
     selected: Pair<Int, Int>?,
     conflicts: Set<Pair<Int, Int>>,
@@ -35,7 +36,7 @@ fun SudokuBoard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .background(Color.Black)
+            .background(Color(0xFF2B2B2B))
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val cellSize = this.size.width / dimension
@@ -68,7 +69,7 @@ fun SudokuBoard(
         for (i in 0..dimension) {
             val vStroke = if (i % blockCols == 0) 4f else 1f
             drawLine(
-                Color.White,
+                color = if (i % blockCols == 0) Color.White else Color(0xFF555555),
                 start = Offset(i * cellSize, 0f),
                 end = Offset(i * cellSize, this.size.height),
                 strokeWidth = vStroke,
@@ -76,7 +77,7 @@ fun SudokuBoard(
             )
             val hStroke = if (i % blockRows == 0) 4f else 1f
             drawLine(
-                Color.White,
+                color = if (i % blockRows == 0) Color.White else Color(0xFF555555),
                 start = Offset(0f, i * cellSize),
                 end = Offset(this.size.width, i * cellSize),
                 strokeWidth = hStroke,
@@ -86,13 +87,14 @@ fun SudokuBoard(
         board.forEachIndexed { r, row ->
             row.forEachIndexed { c, value ->
                 if (value != 0) {
+                    val given = initial[r][c] != 0
                     drawIntoCanvas { canvas ->
                         canvas.nativeCanvas.drawText(
                             value.toString(),
                             c * cellSize + cellSize / 2,
                             r * cellSize + cellSize * 0.75f,
                             android.graphics.Paint().apply {
-                                color = android.graphics.Color.WHITE
+                                color = if (given) android.graphics.Color.WHITE else android.graphics.Color.LTGRAY
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 textSize = cellSize * 0.8f
                             }

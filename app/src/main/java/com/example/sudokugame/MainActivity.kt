@@ -11,6 +11,8 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.sudokugame.ui.theme.SudokuGameTheme
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 enum class Screen { Start, Game, Settings }
 
@@ -42,7 +45,7 @@ class MainActivity : ComponentActivity() {
 fun App() {
     val context = LocalContext.current
     var screen by remember { mutableStateOf(Screen.Start) }
-    var board by remember { mutableStateOf<Array<IntArray>?>(null) }
+    var puzzle by remember { mutableStateOf<Puzzle?>(null) }
     var time by remember { mutableStateOf(0) }
     var difficulty by remember { mutableStateOf(Difficulty.Hard) }
 
@@ -52,27 +55,34 @@ fun App() {
                 hasSaved = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
                     .contains("board"),
                 onStart = { diff ->
-                    board = generatePuzzle(diff)
+                    val p = generatePuzzle(diff)
+                    puzzle = p
                     difficulty = diff
                     time = 0
                     screen = Screen.Game
                 },
                 onContinue = {
                     val prefs = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
-                    board = stringToBoard(prefs.getString("board", "") ?: "")
+                    val b = stringToBoard(prefs.getString("board", "") ?: "")
+                    val size = b.size
+                    val (br, bc) = blockDimensions(size)
+                    puzzle = Puzzle(b, size, br, bc)
                     time = prefs.getInt("time", 0)
-                    difficulty = Difficulty.Hard
+                    difficulty = when (size) { 4 -> Difficulty.Easy; 6 -> Difficulty.Medium; else -> Difficulty.Hard }
                     screen = Screen.Game
                 },
                 onSettings = { screen = Screen.Settings }
             )
-            Screen.Game -> board?.let { b ->
+            Screen.Game -> puzzle?.let { p ->
                 GameScreen(
-                    initialBoard = b,
+                    initialBoard = p.board,
+                    size = p.size,
+                    blockRows = p.blockRows,
+                    blockCols = p.blockCols,
                     initialTime = time,
                     difficulty = difficulty,
                     onBack = {
-                        board = null
+                        puzzle = null
                         screen = Screen.Start
                     }
                 )
@@ -89,6 +99,12 @@ fun StartScreen(
     onContinue: () -> Unit,
     onSettings: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("sudoku", Context.MODE_PRIVATE)
+    val scores = prefs.getString("scores", "")
+        ?.split(",")
+        ?.filter { it.isNotBlank() }
+        ?.map { it.toInt() } ?: emptyList()
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -113,12 +129,19 @@ fun StartScreen(
         }
         Spacer(Modifier.height(16.dp))
         Button(onClick = onSettings) { Text("Settings") }
+        if (scores.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text("High Scores: ${'$'}{scores.joinToString(", ")}")
+        }
     }
 }
 
 @Composable
 fun GameScreen(
     initialBoard: Array<IntArray>,
+    size: Int,
+    blockRows: Int,
+    blockCols: Int,
     initialTime: Int,
     difficulty: Difficulty,
     onBack: () -> Unit
@@ -130,24 +153,23 @@ fun GameScreen(
     val soundEnabled = prefs.getBoolean("sound", true)
     val vibrationEnabled = prefs.getBoolean("vibration", true)
     var board by remember { mutableStateOf(initialBoard.map { it.clone() }.toTypedArray()) }
-    var notes by remember { mutableStateOf(Array(9) { Array(9) { mutableSetOf<Int>() } }) }
+    var notes by remember { mutableStateOf(Array(size) { Array(size) { mutableSetOf<Int>() } }) }
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var noteMode by remember { mutableStateOf(false) }
     var time by remember { mutableStateOf(initialTime) }
     var solved by remember { mutableStateOf(false) }
-    var conflicts by remember { mutableStateOf(findConflicts(board)) }
+    var conflicts by remember { mutableStateOf(findConflicts(board, size, blockRows, blockCols)) }
+    var hintsUsed by remember { mutableStateOf(0) }
+    var score by remember { mutableStateOf(0) }
+    var showDialog by remember { mutableStateOf(false) }
 
     val solution = remember {
-        initialBoard.map { it.clone() }.toTypedArray().also { solveSudoku(it) }
+        initialBoard.map { it.clone() }.toTypedArray().also { solveSudoku(it, size, blockRows, blockCols) }
     }
-    val maxNumber = when (difficulty) {
-        Difficulty.Easy -> 4
-        Difficulty.Medium -> 6
-        Difficulty.Hard -> 9
-    }
+    val maxNumber = size
 
-    LaunchedEffect(Unit) {
-        while (true) {
+    LaunchedEffect(solved) {
+        while (!solved) {
             delay(1000)
             time++
         }
@@ -162,6 +184,33 @@ fun GameScreen(
 
     fun clearSave() {
         prefs.edit().remove("board").remove("time").apply()
+    }
+
+    fun computeScore(): Int {
+        val base = size * size * 100
+        return (base - time * 5 - hintsUsed * 100).coerceAtLeast(0)
+    }
+
+    fun saveHighScore(value: Int) {
+        val list = prefs.getString("scores", "")
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.map { it.toInt() }
+            ?.toMutableList() ?: mutableListOf()
+        list.add(value)
+        val top = list.sortedDescending().take(5)
+        prefs.edit().putString("scores", top.joinToString(",")).apply()
+    }
+
+    fun restart() {
+        board = initialBoard.map { it.clone() }.toTypedArray()
+        notes = Array(size) { Array(size) { mutableSetOf<Int>() } }
+        time = 0
+        hintsUsed = 0
+        conflicts = findConflicts(board, size, blockRows, blockCols)
+        solved = false
+        showDialog = false
+        score = 0
     }
 
     Column(
@@ -191,7 +240,10 @@ fun GameScreen(
             board,
             notes.map { row -> row.map { it.toSet() }.toTypedArray() }.toTypedArray(),
             selected,
-            conflicts
+            conflicts,
+            size,
+            blockRows,
+            blockCols
         ) { r, c ->
             selected = r to c
         }
@@ -208,7 +260,7 @@ fun GameScreen(
                         newBoard[r][c] = number
                         board = newBoard
                         notes[r][c].clear()
-                        conflicts = findConflicts(board)
+                        conflicts = findConflicts(board, size, blockRows, blockCols)
                         if (vibrationEnabled) {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                         }
@@ -217,7 +269,10 @@ fun GameScreen(
                         }
                         if (isBoardComplete(board) && conflicts.isEmpty()) {
                             solved = true
+                            score = computeScore()
+                            saveHighScore(score)
                             clearSave()
+                            showDialog = true
                         }
                     }
                 }
@@ -228,39 +283,59 @@ fun GameScreen(
                         newBoard[r][c] = 0
                         board = newBoard
                         notes[r][c].clear()
-                        conflicts = findConflicts(board)
+                        conflicts = findConflicts(board, size, blockRows, blockCols)
                     }
                 }
             }, onHint = {
                 selected?.let { (r, c) ->
-                    if (initialBoard[r][c] == 0 && board[r][c] == 0) {
+                    if (initialBoard[r][c] == 0) {
                         val newBoard = board.map { it.clone() }.toTypedArray()
-                        newBoard[r][c] = solution[r][c]
+                        if (board[r][c] != 0 && board[r][c] == solution[r][c]) {
+                            // active cell correct; fill nearest empty
+                            val empties = mutableListOf<Pair<Int, Int>>()
+                            for (i in 0 until size) {
+                                for (j in 0 until size) if (board[i][j] == 0) empties.add(i to j)
+                            }
+                            val nearest = empties.minByOrNull { (er, ec) -> abs(er - r) + abs(ec - c) }
+                            nearest?.let { (nr, nc) -> newBoard[nr][nc] = solution[nr][nc] }
+                        } else {
+                            newBoard[r][c] = solution[r][c]
+                        }
                         board = newBoard
-                        conflicts = findConflicts(board)
+                        hintsUsed++
+                        conflicts = findConflicts(board, size, blockRows, blockCols)
                         if (isBoardComplete(board) && conflicts.isEmpty()) {
                             solved = true
+                            score = computeScore()
+                            saveHighScore(score)
                             clearSave()
+                            showDialog = true
                         }
                     }
                 }
             })
         }
-        AnimatedVisibility(visible = solved, enter = fadeIn(), exit = fadeOut()) {
-            Text("Congratulations!", style = MaterialTheme.typography.headlineMedium)
+        AnimatedVisibility(visible = showDialog, enter = scaleIn(), exit = scaleOut()) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Puzzle Complete") },
+                text = { Text("Time: ${'$'}{time}s\nScore: ${'$'}score") },
+                confirmButton = { TextButton(onClick = { restart() }) { Text("Restart") } },
+                dismissButton = { TextButton(onClick = { onBack() }) { Text("Main Menu") } }
+            )
         }
     }
 }
 
-fun isValidMove(board: Array<IntArray>, row: Int, col: Int, value: Int): Boolean {
+fun isValidMove(board: Array<IntArray>, row: Int, col: Int, value: Int, size: Int, blockRows: Int, blockCols: Int): Boolean {
     if (board[row][col] != 0) return false
-    for (i in 0 until 9) {
+    for (i in 0 until size) {
         if (board[row][i] == value || board[i][col] == value) return false
     }
-    val sr = row / 3 * 3
-    val sc = col / 3 * 3
-    for (r in sr until sr + 3) {
-        for (c in sc until sc + 3) {
+    val sr = row / blockRows * blockRows
+    val sc = col / blockCols * blockCols
+    for (r in sr until sr + blockRows) {
+        for (c in sc until sc + blockCols) {
             if (board[r][c] == value) return false
         }
     }
@@ -270,32 +345,32 @@ fun isValidMove(board: Array<IntArray>, row: Int, col: Int, value: Int): Boolean
 fun isBoardComplete(board: Array<IntArray>): Boolean =
     board.all { row -> row.all { it != 0 } }
 
-fun findConflicts(board: Array<IntArray>): Set<Pair<Int, Int>> {
+fun findConflicts(board: Array<IntArray>, size: Int, blockRows: Int, blockCols: Int): Set<Pair<Int, Int>> {
     val conflicts = mutableSetOf<Pair<Int, Int>>()
     // Rows
-    for (r in 0 until 9) {
+    for (r in 0 until size) {
         val seen = mutableMapOf<Int, MutableList<Int>>()
-        for (c in 0 until 9) {
+        for (c in 0 until size) {
             val v = board[r][c]
             if (v != 0) seen.getOrPut(v) { mutableListOf() }.add(c)
         }
         for (cols in seen.values) if (cols.size > 1) cols.forEach { c -> conflicts.add(r to c) }
     }
     // Columns
-    for (c in 0 until 9) {
+    for (c in 0 until size) {
         val seen = mutableMapOf<Int, MutableList<Int>>()
-        for (r in 0 until 9) {
+        for (r in 0 until size) {
             val v = board[r][c]
             if (v != 0) seen.getOrPut(v) { mutableListOf() }.add(r)
         }
         for (rows in seen.values) if (rows.size > 1) rows.forEach { r -> conflicts.add(r to c) }
     }
     // Blocks
-    for (sr in 0 until 9 step 3) {
-        for (sc in 0 until 9 step 3) {
+    for (sr in 0 until size step blockRows) {
+        for (sc in 0 until size step blockCols) {
             val seen = mutableMapOf<Int, MutableList<Pair<Int, Int>>>()
-            for (r in sr until sr + 3) {
-                for (c in sc until sc + 3) {
+            for (r in sr until sr + blockRows) {
+                for (c in sc until sc + blockCols) {
                     val v = board[r][c]
                     if (v != 0) seen.getOrPut(v) { mutableListOf() }.add(r to c)
                 }
@@ -306,14 +381,14 @@ fun findConflicts(board: Array<IntArray>): Set<Pair<Int, Int>> {
     return conflicts
 }
 
-fun solveSudoku(board: Array<IntArray>): Boolean {
-    for (r in 0 until 9) {
-        for (c in 0 until 9) {
+fun solveSudoku(board: Array<IntArray>, size: Int, blockRows: Int, blockCols: Int): Boolean {
+    for (r in 0 until size) {
+        for (c in 0 until size) {
             if (board[r][c] == 0) {
-                for (n in 1..9) {
-                    if (isValidMove(board, r, c, n)) {
+                for (n in 1..size) {
+                    if (isValidMove(board, r, c, n, size, blockRows, blockCols)) {
                         board[r][c] = n
-                        if (solveSudoku(board)) return true
+                        if (solveSudoku(board, size, blockRows, blockCols)) return true
                         board[r][c] = 0
                     }
                 }

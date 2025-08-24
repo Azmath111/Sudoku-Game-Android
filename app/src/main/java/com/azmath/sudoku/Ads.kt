@@ -1,6 +1,7 @@
 package com.azmath.sudoku
 
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.compose.runtime.Composable
@@ -17,10 +18,12 @@ import com.google.android.gms.ads.nativead.NativeAdView
 fun NativeAdComposable(modifier: Modifier = Modifier) {
     AndroidView(modifier = modifier, factory = { context ->
         val adView = LayoutInflater.from(context).inflate(R.layout.native_ad, null) as NativeAdView
+        adView.visibility = View.GONE
 
         val adLoader = AdLoader.Builder(context, "ca-app-pub-7087498886582308/1319021685")
             .forNativeAd { ad: NativeAd ->
                 populateNativeAdView(ad, adView)
+                adView.visibility = View.VISIBLE
             }
             .withNativeAdOptions(NativeAdOptions.Builder().build())
             .build()

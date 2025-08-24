@@ -40,6 +40,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.0")
     implementation("androidx.compose.material:material-icons-extended:$composeUiVersion")
     implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.android.gms:play-services-ads:22.6.0")
     debugImplementation("androidx.compose.ui:ui-tooling:$composeUiVersion")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

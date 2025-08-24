@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.azmath.sudoku.ui.theme.SudokuGameTheme
+import com.google.android.gms.ads.MobileAds
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
@@ -37,6 +38,7 @@ enum class Screen { Start, Game, Settings }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MobileAds.initialize(this) {}
         setContent {
             SudokuGameTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -117,39 +119,44 @@ fun StartScreen(
             val time = parts.getOrNull(1)?.toIntOrNull()
             if (score != null && time != null) score to time else null
         } ?: emptyList()
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Sudoku",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(24.dp))
-        Row {
-            Button(onClick = { onStart(Difficulty.Easy) }) { Text("Easy") }
-            Spacer(Modifier.width(8.dp))
-            Button(onClick = { onStart(Difficulty.Medium) }) { Text("Medium") }
-            Spacer(Modifier.width(8.dp))
-            Button(onClick = { onStart(Difficulty.Hard) }) { Text("Hard") }
-        }
-        if (hasSaved) {
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Sudoku",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(24.dp))
+            Row {
+                Button(onClick = { onStart(Difficulty.Easy) }) { Text("Easy") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { onStart(Difficulty.Medium) }) { Text("Medium") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { onStart(Difficulty.Hard) }) { Text("Hard") }
+            }
+            if (hasSaved) {
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onContinue) { Text("Continue") }
+            }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onContinue) { Text("Continue") }
-        }
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onSettings) { Text("Settings") }
-        if (scores.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("High Scores:")
-                scores.forEachIndexed { index, (s, t) ->
-                    Text("${index + 1}. ${s} pts - ${formatTime(t)}")
+            Button(onClick = onSettings) { Text("Settings") }
+            if (scores.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("High Scores:")
+                    scores.forEachIndexed { index, (s, t) ->
+                        Text("${index + 1}. ${s} pts - ${formatTime(t)}")
+                    }
                 }
             }
         }
+        NativeAdComposable(modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth())
     }
 }
 
@@ -372,6 +379,8 @@ fun GameScreen(
                 }
             }
         })
+        Spacer(modifier = Modifier.weight(1f))
+        NativeAdComposable(modifier = Modifier.fillMaxWidth())
         AnimatedVisibility(visible = showDialog, enter = scaleIn(), exit = scaleOut()) {
             AlertDialog(
                 onDismissRequest = {},
